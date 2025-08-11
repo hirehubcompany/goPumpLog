@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "478273669259",
+    "project_id": "goil-plc",
+    "storage_bucket": "goil-plc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478273669259:android:c45d3c579f9c3f8b21ec8e",
+        "android_client_info": {
+          "package_name": "com.ggofix.go_fix"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpkmeoOxeD5l1VMd_KRuoV4P6dpmP62po"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478273669259:android:f69f22439c1fa6e421ec8e",
+        "android_client_info": {
+          "package_name": "com.goploglogpump.gopumplog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpkmeoOxeD5l1VMd_KRuoV4P6dpmP62po"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:478273669259:android:e8fdc5035363c93521ec8e",
+        "android_client_info": {
+          "package_name": "com.gopumplog.gopumplog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpkmeoOxeD5l1VMd_KRuoV4P6dpmP62po"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
