@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gopumplog/admin/stations/add%20stations.dart';
 import 'package:gopumplog/pages/drawe/reports/homepage.dart';
@@ -35,6 +36,13 @@ class _AddDrawerState extends State<AddDrawer> {
               Navigator.push(context, MaterialPageRoute(builder: (context){
                 return ReportsPage();
               }));
+            },
+          ),
+
+          ListTile(
+            title: Text('Log Out'),
+            onTap: (){
+              FirebaseAuth.instance.signOut();
             },
           ),
 
