@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:gopumplog/admin/stations/add%20stations.dart';
 import 'package:gopumplog/pages/drawe/reports/homepage.dart';
+import 'package:gopumplog/pages/ranking/homepage.dart';
+import 'package:gopumplog/pages/stations/stations.dart';
 
 class AddDrawer extends StatefulWidget {
   const AddDrawer({super.key});
@@ -35,6 +37,17 @@ class _AddDrawerState extends State<AddDrawer> {
             onTap: (){
               Navigator.push(context, MaterialPageRoute(builder: (context){
                 return ReportsPage();
+              }));
+            },
+          ),
+
+
+
+          ListTile(
+            title: Text('Station Ranking'),
+            onTap: (){
+              Navigator.push(context, MaterialPageRoute(builder: (context){
+                return StationRankings();
               }));
             },
           ),
