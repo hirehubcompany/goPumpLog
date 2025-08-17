@@ -173,6 +173,9 @@ class _HomepageState extends State<Homepage> {
         return;
       }
 
+      // ✅ Sort alphabetically by station before writing
+      reportData.sort((a, b) => a["station"].compareTo(b["station"]));
+
       final excel = Excel.createExcel();
       const sheetName = 'Report';
       excel.rename(excel.getDefaultSheet()!, sheetName);
@@ -218,6 +221,7 @@ class _HomepageState extends State<Homepage> {
       print('❌ Error creating Excel file: $e');
     }
   }
+
 
   Map<String, dynamic> getDashboardSummary() {
     if (reportData.isEmpty) return {};
