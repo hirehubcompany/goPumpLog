@@ -7,8 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../data/station_zone_map.dart';
-
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
 
@@ -23,14 +21,46 @@ class _HomepageState extends State<Homepage> {
   bool sortByPercentage = false;
   String? filePath;
 
-  // 🔹 Multiple selected zones
+  Map<String, String> stationZoneMap = {};
   List<String> selectedZones = [];
 
-  // 🔹 Get list of zones from stationZoneMap
+  @override
+  void initState() {
+    super.initState();
+    _loadStationZoneMap();
+  }
+
+  Future<void> _loadStationZoneMap() async {
+    try {
+      final snapshot =
+      await FirebaseFirestore.instance.collection("All Stations").get();
+
+      Map<String, String> temp = {};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final station = data["name"]?.toString().trim();
+        final zone = data["zone"]?.toString().trim();
+        if (station != null && station.isNotEmpty) {
+          temp[station] = zone ?? "Unknown Zone";
+        }
+      }
+
+      setState(() {
+        stationZoneMap = temp;
+      });
+    } catch (e) {
+      print("❌ Error loading stations: $e");
+    }
+  }
+
   List<String> getZoneList() {
     final zones = stationZoneMap.values.toSet().toList();
     zones.sort();
     return zones;
+  }
+
+  String getZoneForStation(String station) {
+    return stationZoneMap[station] ?? "Unknown Zone";
   }
 
   Future<void> choosePeriod() async {
@@ -39,11 +69,15 @@ class _HomepageState extends State<Homepage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Set period (days)"),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text("📅 Set Reporting Period",
+              style: TextStyle(fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
+              border: OutlineInputBorder(),
               hintText: "Enter number of days",
             ),
           ),
@@ -53,6 +87,8 @@ class _HomepageState extends State<Homepage> {
               child: const Text("Cancel"),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber, foregroundColor: Colors.black),
               onPressed: () {
                 final days = int.tryParse(controller.text);
                 if (days != null && days > 0) {
@@ -134,7 +170,7 @@ class _HomepageState extends State<Homepage> {
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No file selected')),
+        const SnackBar(content: Text('❌ No file selected')),
       );
     }
   }
@@ -157,11 +193,11 @@ class _HomepageState extends State<Homepage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$reportName saved to Firestore")),
+        SnackBar(content: Text("✅ $reportName saved to Firestore")),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving report: $e")),
+        SnackBar(content: Text("❌ Error saving report: $e")),
       );
     }
   }
@@ -169,11 +205,8 @@ class _HomepageState extends State<Homepage> {
   Future<void> downloadReportAsExcel(
       List<Map<String, dynamic>> reportData) async {
     try {
-      if (reportData.isEmpty) {
-        return;
-      }
+      if (reportData.isEmpty) return;
 
-      // ✅ Sort alphabetically by station before writing
       reportData.sort((a, b) => a["station"].compareTo(b["station"]));
 
       final excel = Excel.createExcel();
@@ -204,9 +237,7 @@ class _HomepageState extends State<Homepage> {
       }
 
       final fileBytes = excel.encode();
-      if (fileBytes == null) {
-        return;
-      }
+      if (fileBytes == null) return;
 
       final directory = await getApplicationDocumentsDirectory();
       final filePath = '${directory.path}/report.xlsx';
@@ -215,13 +246,12 @@ class _HomepageState extends State<Homepage> {
 
       await Share.shareXFiles(
         [XFile(filePath)],
-        text: 'Here is your Excel report',
+        text: '📊 Here is your Excel report',
       );
     } catch (e) {
       print('❌ Error creating Excel file: $e');
     }
   }
-
 
   Map<String, dynamic> getDashboardSummary() {
     if (reportData.isEmpty) return {};
@@ -249,8 +279,8 @@ class _HomepageState extends State<Homepage> {
     setState(() {
       sortByPercentage = !sortByPercentage;
       if (sortByPercentage) {
-        reportData.sort((a, b) =>
-            b["percentageValue"].compareTo(a["percentageValue"]));
+        reportData
+            .sort((a, b) => b["percentageValue"].compareTo(a["percentageValue"]));
       } else {
         reportData.sort((a, b) => a["station"].compareTo(b["station"]));
       }
@@ -261,7 +291,6 @@ class _HomepageState extends State<Homepage> {
   Widget build(BuildContext context) {
     var summary = getDashboardSummary();
 
-    // 🔹 Filtered data for display (multiple zones)
     List<Map<String, dynamic>> filteredData = selectedZones.isEmpty
         ? reportData
         : reportData
@@ -274,10 +303,10 @@ class _HomepageState extends State<Homepage> {
       ),
       appBar: AppBar(
         title: const Text(
-          "GoSalesLog",
+          "📊 GoSalesLog",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFFFFD300),
+        backgroundColor: Colors.amber,
         foregroundColor: Colors.black,
         actions: [
           if (reportData.isNotEmpty)
@@ -289,89 +318,98 @@ class _HomepageState extends State<Homepage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            ElevatedButton.icon(
-              onPressed: () async {
-                await choosePeriod();
-                await pickAndProcessExcelFile();
-              },
-              icon: const Icon(Icons.upload_file),
-              label: const Text("Upload goEntries Sheet File"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD300),
-                foregroundColor: Colors.black,
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15)),
+              child: Padding(
                 padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                textStyle:
-                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await choosePeriod();
+                        await pickAndProcessExcelFile();
+                      },
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text("Upload goEntries Sheet"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        textStyle: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(fileName ?? "📂 No file selected",
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Text("⏳ Period: $numberOfDays days",
+                        style: const TextStyle(fontSize: 14)),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(fileName ?? "No file selected",
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 10),
-            Text("Period: $numberOfDays days",
-                style: const TextStyle(fontSize: 16)),
 
-            // 🔹 Zone filter chips (multi-select)
+            // 🔹 Zone Filters
             if (reportData.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: getZoneList().map((zone) {
-                    final isSelected = selectedZones.contains(zone);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: FilterChip(
-                        label: Text(zone),
-                        selected: isSelected,
-                        onSelected: (bool selected) {
-                          setState(() {
-                            if (selected) {
-                              selectedZones.add(zone);
-                            } else {
-                              selectedZones.remove(zone);
-                            }
-                          });
-                        },
-                        selectedColor: Colors.yellow,
-                        checkmarkColor: Colors.black,
-                      ),
-                    );
-                  }).toList(),
-                ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                children: getZoneList().map((zone) {
+                  final isSelected = selectedZones.contains(zone);
+                  return FilterChip(
+                    label: Text(zone),
+                    selected: isSelected,
+                    onSelected: (bool selected) {
+                      setState(() {
+                        if (selected) {
+                          selectedZones.add(zone);
+                        } else {
+                          selectedZones.remove(zone);
+                        }
+                      });
+                    },
+                    selectedColor: Colors.amber,
+                    checkmarkColor: Colors.black,
+                  );
+                }).toList(),
               ),
             ],
 
             if (reportData.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: saveReportToFirestore,
-                    icon: const Icon(Icons.save),
-                    label: const Text("Save"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: saveReportToFirestore,
+                      icon: const Icon(Icons.save),
+                      label: const Text("Save"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        downloadReportAsExcel(filteredData),
-                    icon: const Icon(Icons.download),
-                    label: const Text(
-                      "Download / Share Excel",
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => downloadReportAsExcel(filteredData),
+                      icon: const Icon(Icons.download),
+                      label: const Text("Download Excel",
+                          style: TextStyle(fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                 ],
@@ -381,17 +419,44 @@ class _HomepageState extends State<Homepage> {
             const SizedBox(height: 20),
             Expanded(
               child: filteredData.isEmpty
-                  ? const Center(child: Text("No data to display"))
+                  ? const Center(
+                  child: Text("😕 No data to display",
+                      style: TextStyle(fontSize: 16)))
                   : ListView.builder(
                 itemCount: filteredData.length,
                 itemBuilder: (context, index) {
                   final item = filteredData[index];
                   return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
-                      title: Text(item["station"]),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.amber,
+                        foregroundColor: Colors.black,
+                        child: Text(
+                          "${index + 1}",
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(item["station"],
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold)),
                       subtitle: Text(
-                          "Zone: ${item["zone"]} | Entries: ${item["entries"]}"),
-                      trailing: Text("${item["percentage"]}%"),
+                          "📍 Zone: ${item["zone"]} | 📝 Entries: ${item["entries"]}"),
+                      trailing: Text(
+                        "${item["percentage"]}%",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: (item["percentageValue"] >= 80)
+                              ? Colors.green
+                              : (item["percentageValue"] >= 40)
+                              ? Colors.orange
+                              : Colors.red,
+                        ),
+                      ),
                     ),
                   );
                 },
