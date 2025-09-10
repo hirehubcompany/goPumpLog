@@ -4,7 +4,7 @@ class CustomBtn extends StatelessWidget {
   final String text;
   final bool outlineBtn;
   final bool isLoading;
-  const CustomBtn({required this.text, required this.isLoading, required this.outlineBtn});
+  const CustomBtn({required this.text, required this.isLoading, required this.outlineBtn, required Color color});
 
 
 

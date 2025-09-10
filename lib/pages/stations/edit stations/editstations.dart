@@ -96,10 +96,10 @@ class EditStationPage extends StatefulWidget {
 
 class _EditStationPageState extends State<EditStationPage> {
   late TextEditingController nameController;
-  late TextEditingController meController;
   late TextEditingController createdAtController;
 
   String? selectedZone;
+  String? selectedME;
 
   final List<String> zones = [
     "UpperMiddleBelt",
@@ -111,22 +111,63 @@ class _EditStationPageState extends State<EditStationPage> {
     "Tema",
   ];
 
+  final List<String> mes = [
+    "Unknown ME",
+
+    "SENA BANSAH",
+    "ABU SISU/EUGENE DOMFEH",
+    "AFISATA AMADU",
+    "ANDY ADU-TAWIAH",
+    "BERLINDA AMPONSAH LARBI",
+    "DANIEL K. AZULIRAH",
+    "DANIELLA ADJEI",
+    "DAVID K. ASIEDU",
+    "DELA BONAH MENSAH",
+    "DIANA ABUNYEWAH",
+    "DOREEN SARKODIE/LYDIA DANQUAH",
+    "EBENEZER ADJEI",
+    "EMMANUEL QUAYE",
+    "ERIC KOJO ADJEI",
+    "ESINAM",
+    "FAMOUS",
+    "FOBI GYEKYE",
+    "FRANKLIN OSEI-ASARE",
+    "GOODNESS ELIKPLIM AKADI",
+    "HARRIET OFFEI NEWMAN",
+    "ISAAC AGYEI",
+    "KAFUI A. KWAME",
+    "KOFI ANOKYE AMANKWAH",
+    "MANDY",
+    "MANUELLA",
+    "MIRIAM ADJEI",
+    "MOHAMMED SHERIF MUFTAHU",
+    "NANA AKOSUA AFRAM",
+    "NOAH PARTEY",
+    "NURUDEEN ARIMIYAW",
+    "RACHAEL OSEI AMOH",
+    "RUTH COBBINAH",
+    "SELINA BOAKYE",
+    "SYLVIA KYEREMEH",
+    "THEOPHILUS ADDO",
+    "UMAR IDDRISSU",
+    "YAA AKOMA OTUO-BOATENG",
+    "YAA POKUAA",
+  ];
+
   @override
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.data['name'] ?? '');
-    meController = TextEditingController(text: widget.data['ME'] ?? '');
     createdAtController =
         TextEditingController(text: widget.data['createdAt']?.toString() ?? '');
 
-    // Initialize selected zone with current zone
     selectedZone = widget.data['zone'];
+    selectedME = widget.data['ME'];
   }
 
   @override
   void dispose() {
     nameController.dispose();
-    meController.dispose();
     createdAtController.dispose();
     super.dispose();
   }
@@ -139,7 +180,7 @@ class _EditStationPageState extends State<EditStationPage> {
           .update({
         'name': nameController.text,
         'zone': selectedZone,
-        'ME': meController.text,
+        'ME': selectedME,
         'createdAt': createdAtController.text,
       });
 
@@ -155,6 +196,7 @@ class _EditStationPageState extends State<EditStationPage> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -162,62 +204,95 @@ class _EditStationPageState extends State<EditStationPage> {
         backgroundColor: Colors.orangeAccent,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            _buildTextField(controller: nameController, label: "Station Name"),
-            const SizedBox(height: 15),
+      body: SingleChildScrollView( // ✅ Prevents overflow
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTextField(controller: nameController, label: "Station Name"),
+              const SizedBox(height: 15),
 
-            // Zone dropdown
-            DropdownButtonFormField<String>(
-              value: selectedZone,
-              decoration: InputDecoration(
-                labelText: "Zone",
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
+              // Zone dropdown
+              DropdownButtonFormField<String>(
+                value: selectedZone,
+                decoration: _dropdownDecoration("Zone"),
+                items: zones.map((zone) {
+                  return DropdownMenuItem(
+                    value: zone,
+                    child: Text(zone),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedZone = value;
+                  });
+                },
               ),
-              items: zones.map((zone) {
-                return DropdownMenuItem(
-                  value: zone,
-                  child: Text(zone),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedZone = value;
-                });
-              },
-            ),
 
-            const SizedBox(height: 15),
-            _buildTextField(controller: meController, label: "ME"),
-            const SizedBox(height: 15),
-            _buildTextField(controller: createdAtController, label: "Created At"),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: updateStation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepOrange,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 15),
+
+              // ME dropdown
+              DropdownButtonFormField<String>(
+                value: selectedME,
+                decoration: _dropdownDecoration("ME"),
+                isExpanded: true, // ✅ Makes sure long names fit
+                items: mes.map((me) {
+                  return DropdownMenuItem(
+                    value: me,
+                    child: Text(
+                      me,
+                      overflow: TextOverflow.ellipsis, // ✅ Prevents overflow
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedME = value;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 15),
+              _buildTextField(controller: createdAtController, label: "Created At"),
+              const SizedBox(height: 30),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: updateStation,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepOrange,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    "Update Station",
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                 ),
-                child: const Text(
-                  "Update Station",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.grey[100],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
       ),
     );
   }
@@ -240,3 +315,4 @@ class _EditStationPageState extends State<EditStationPage> {
     );
   }
 }
+

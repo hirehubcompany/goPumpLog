@@ -18,49 +18,63 @@ class _HomepageState extends State<Homepage> {
   String? fileName;
   List<Map<String, dynamic>> reportData = [];
   int numberOfDays = 8;
-  bool sortByPercentage = false;
+  bool sortByPercentage = true; // ✅ Default sorting by percentage
   String? filePath;
 
-  Map<String, String> stationZoneMap = {};
+  /// Holds "station name" -> {"zone": "...", "ME": "..."}
+  Map<String, Map<String, String>> stationInfoMap = {};
   List<String> selectedZones = [];
 
   @override
   void initState() {
     super.initState();
-    _loadStationZoneMap();
+    _loadStationInfo();
   }
 
-  Future<void> _loadStationZoneMap() async {
+  /// Load Station -> Zone & ME from Firestore ("All Stations")
+  Future<void> _loadStationInfo() async {
     try {
       final snapshot =
       await FirebaseFirestore.instance.collection("All Stations").get();
 
-      Map<String, String> temp = {};
+      final Map<String, Map<String, String>> temp = {};
       for (var doc in snapshot.docs) {
         final data = doc.data();
         final station = data["name"]?.toString().trim();
         final zone = data["zone"]?.toString().trim();
+        final me = data["ME"]?.toString().trim();
+
         if (station != null && station.isNotEmpty) {
-          temp[station] = zone ?? "Unknown Zone";
+          temp[station] = {
+            "zone": zone ?? "Unknown Zone",
+            "ME": me ?? "Unknown ME",
+          };
         }
       }
 
       setState(() {
-        stationZoneMap = temp;
+        stationInfoMap = temp;
       });
     } catch (e) {
-      print("❌ Error loading stations: $e");
+      debugPrint("❌ Error loading stations: $e");
     }
   }
 
   List<String> getZoneList() {
-    final zones = stationZoneMap.values.toSet().toList();
+    final zones = stationInfoMap.values
+        .map((e) => e["zone"] ?? "Unknown Zone")
+        .toSet()
+        .toList();
     zones.sort();
     return zones;
   }
 
   String getZoneForStation(String station) {
-    return stationZoneMap[station] ?? "Unknown Zone";
+    return stationInfoMap[station]?["zone"] ?? "Unknown Zone";
+  }
+
+  String getMEForStation(String station) {
+    return stationInfoMap[station]?["ME"] ?? "Unknown ME";
   }
 
   Future<void> choosePeriod() async {
@@ -109,6 +123,7 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
+  /// Read the selected Excel, count entries per station, attach Zone + ME, compute %.
   Future<void> pickAndProcessExcelFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -122,10 +137,9 @@ class _HomepageState extends State<Homepage> {
       final bytes = File(filePath!).readAsBytesSync();
       final excel = Excel.decodeBytes(bytes);
 
-      List<Map<String, dynamic>> tempData = [];
+      final List<Map<String, dynamic>> tempData = [];
 
-      Sheet sheet = excel.tables[excel.tables.keys.first]!;
-
+      final Sheet sheet = excel.tables[excel.tables.keys.first]!;
       int stationCol = -1;
 
       if (sheet.maxRows > 0) {
@@ -140,7 +154,7 @@ class _HomepageState extends State<Homepage> {
         }
       }
 
-      Map<String, int> stationCounts = {};
+      final Map<String, int> stationCounts = {};
 
       for (var row in sheet.rows.skip(1)) {
         String? station =
@@ -152,18 +166,24 @@ class _HomepageState extends State<Homepage> {
       }
 
       stationCounts.forEach((station, count) {
-        int adjustedCount = (count / 2).ceil();
-        double percentage = (adjustedCount / numberOfDays) * 100;
-        String zone = getZoneForStation(station);
+        final int adjustedCount = (count / 2).ceil();
+        final double percentage = (adjustedCount / numberOfDays) * 100;
+        final String zone = getZoneForStation(station);
+        final String me = getMEForStation(station);
 
         tempData.add({
           "station": station,
           "zone": zone,
+          "ME": me,
           "entries": adjustedCount,
           "percentageValue": percentage,
           "percentage": percentage.toStringAsFixed(2),
         });
       });
+
+      // ✅ Always sort by percentage
+      tempData.sort(
+              (a, b) => b["percentageValue"].compareTo(a["percentageValue"]));
 
       setState(() {
         reportData = tempData;
@@ -175,6 +195,7 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
+  /// Save full report (including ME) to Firestore
   Future<void> saveReportToFirestore() async {
     try {
       QuerySnapshot snapshot =
@@ -189,7 +210,7 @@ class _HomepageState extends State<Homepage> {
         "fileName": fileName,
         "periodDays": numberOfDays,
         "createdAt": DateTime.now(),
-        "data": reportData,
+        "data": reportData, // includes ME
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,12 +223,13 @@ class _HomepageState extends State<Homepage> {
     }
   }
 
-  Future<void> downloadReportAsExcel(
-      List<Map<String, dynamic>> reportData) async {
+  /// Export Excel with ME column
+  Future<void> downloadReportAsExcel(List<Map<String, dynamic>> data) async {
     try {
-      if (reportData.isEmpty) return;
+      if (data.isEmpty) return;
 
-      reportData.sort((a, b) => a["station"].compareTo(b["station"]));
+      // ✅ Keep sorted by percentage
+      data.sort((a, b) => b["percentageValue"].compareTo(a["percentageValue"]));
 
       final excel = Excel.createExcel();
       const sheetName = 'Report';
@@ -218,19 +240,22 @@ class _HomepageState extends State<Homepage> {
       sheetObject.appendRow([
         TextCellValue("Station"),
         TextCellValue("Zone"),
+        TextCellValue("ME"),
         TextCellValue("Entries"),
         TextCellValue("Percentage"),
       ]);
 
-      for (var item in reportData) {
+      for (var item in data) {
         final station = item['station']?.toString() ?? '';
         final zone = item['zone']?.toString() ?? 'Unknown Zone';
+        final me = item['ME']?.toString() ?? 'Unknown ME';
         final entries = int.tryParse(item['entries'].toString()) ?? 0;
         final percentage = "${item['percentage']}%";
 
         sheetObject.appendRow([
           TextCellValue(station),
           TextCellValue(zone),
+          TextCellValue(me),
           IntCellValue(entries),
           TextCellValue(percentage),
         ]);
@@ -240,16 +265,16 @@ class _HomepageState extends State<Homepage> {
       if (fileBytes == null) return;
 
       final directory = await getApplicationDocumentsDirectory();
-      final filePath = '${directory.path}/report.xlsx';
-      final file = File(filePath);
+      final path = '${directory.path}/report.xlsx';
+      final file = File(path);
       await file.writeAsBytes(fileBytes);
 
       await Share.shareXFiles(
-        [XFile(filePath)],
+        [XFile(path)],
         text: '📊 Here is your Excel report',
       );
     } catch (e) {
-      print('❌ Error creating Excel file: $e');
+      debugPrint('❌ Error creating Excel file: $e');
     }
   }
 
@@ -259,13 +284,12 @@ class _HomepageState extends State<Homepage> {
         .map((e) => e["percentageValue"] as double)
         .reduce((a, b) => a + b) /
         reportData.length;
-    int totalEntries = reportData
-        .map((e) => e["entries"] as int)
-        .reduce((a, b) => a + b);
-    var bestStation = reportData.reduce(
-            (a, b) => a["percentageValue"] > b["percentageValue"] ? a : b);
-    var worstStation = reportData.reduce(
-            (a, b) => a["percentageValue"] < b["percentageValue"] ? a : b);
+    int totalEntries =
+    reportData.map((e) => e["entries"] as int).reduce((a, b) => a + b);
+    var bestStation = reportData
+        .reduce((a, b) => a["percentageValue"] > b["percentageValue"] ? a : b);
+    var worstStation = reportData
+        .reduce((a, b) => a["percentageValue"] < b["percentageValue"] ? a : b);
 
     return {
       "average": avgPercentage.toStringAsFixed(2),
@@ -289,9 +313,10 @@ class _HomepageState extends State<Homepage> {
 
   @override
   Widget build(BuildContext context) {
-    var summary = getDashboardSummary();
+    final summary = getDashboardSummary();
 
-    List<Map<String, dynamic>> filteredData = selectedZones.isEmpty
+    // Apply zone filter
+    final List<Map<String, dynamic>> filteredData = selectedZones.isEmpty
         ? reportData
         : reportData
         .where((item) => selectedZones.contains(item["zone"]))
@@ -312,7 +337,7 @@ class _HomepageState extends State<Homepage> {
           if (reportData.isNotEmpty)
             IconButton(
               icon: Icon(
-                  sortByPercentage ? Icons.sort_by_alpha : Icons.bar_chart),
+                  sortByPercentage ? Icons.bar_chart : Icons.sort_by_alpha),
               onPressed: toggleSorting,
             ),
         ],
@@ -374,6 +399,11 @@ class _HomepageState extends State<Homepage> {
                           selectedZones.add(zone);
                         } else {
                           selectedZones.remove(zone);
+                        }
+                        // ✅ Keep filtered data sorted by percentage
+                        if (sortByPercentage) {
+                          reportData.sort((a, b) => b["percentageValue"]
+                              .compareTo(a["percentageValue"]));
                         }
                       });
                     },
@@ -441,11 +471,14 @@ class _HomepageState extends State<Homepage> {
                               fontWeight: FontWeight.bold),
                         ),
                       ),
-                      title: Text(item["station"],
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold)),
+                      title: Text(
+                        item["station"],
+                        style:
+                        const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       subtitle: Text(
-                          "📍 Zone: ${item["zone"]} | 📝 Entries: ${item["entries"]}"),
+                        "📍 Zone: ${item["zone"]} | 👤 ME: ${item["ME"]} | 📝 Entries: ${item["entries"]}",
+                      ),
                       trailing: Text(
                         "${item["percentage"]}%",
                         style: TextStyle(

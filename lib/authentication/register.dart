@@ -67,7 +67,7 @@ class RegisterPage extends StatelessWidget {
                         Icon(Icons.phone, color: Colors.blueAccent, size: 22),
                         SizedBox(width: 8),
                         Text(
-                          "055 159 7865",
+                          "024 646 7591",
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
